@@ -357,7 +357,7 @@
            if (links[position]) {
              const dest = links[position];
              announceEl.textContent = dest > position ? 'Ladder! Climb to ' + dest : 'Snake! Slide to ' + dest;
-            await glideMove(position, dest, 1500);
+            await glideMove(position, dest, 1000);
             placeTokenAt(dest);
             position = dest;
             updateStatus();
