@@ -186,6 +186,8 @@
       const cells = [];
       const links = { 6: 18, 12: 24, 15: 27, 11: 3, 20: 16, 25: 23, 32: 28 }; // ladders and snakes
       let rollCount = 0;
+
+      const boardInset = { top: 4, right: 2.5, bottom: 2, left: 2.5 }; 
  
       // Compute number for a visual row/col with fixed bottom-left serpentine
       function computeNumber(vRow, vCol) {
