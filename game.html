@@ -18,7 +18,7 @@
       grid-auto-rows: 1fr;
       gap: 0;
       /* Use the supplied board artwork as the visual layout */
-      background: url('./Flash snakes and ladders (2).png') center/100% 100% no-repeat;
+      background: url('./images/Flash snakes and ladders (2).png') center/100% 100% no-repeat;
       aspect-ratio: 1 / 1;
       width: 100%;
       max-width: 720px;
@@ -107,7 +107,7 @@
   <header role="banner">
     <nav role="navigation" aria-label="Main navigation">
       <div class="logo">
-        <img src="./logo.png" alt="IBM & Service Express Logo" width="40" height="40" />
+        <img src="images/logo.png" alt="IBM & Service Express Logo" width="40" height="40" />
         <h1>Stuart Wade & Evelyn Mark</h1>
       </div>
       <ul>
@@ -186,8 +186,6 @@
       const cells = [];
       const links = { 6: 18, 12: 24, 15: 27, 11: 3, 20: 16, 25: 23, 32: 28 }; // ladders and snakes
       let rollCount = 0;
-
-      const boardInset = { top: 4, right: 2.5, bottom: 2, left: 4 }; 
  
       // Compute number for a visual row/col with fixed bottom-left serpentine
       function computeNumber(vRow, vCol) {
@@ -333,7 +331,7 @@
            }
  
            // Wait 5 seconds after the dice roll before moving the token with visible countdown
-           let remaining = 2;
+           let remaining = 3;
            announceEl.textContent = 'Moving in ' + remaining + '…';
            await new Promise(resolve => {
              const timer = setInterval(() => {
@@ -349,7 +347,7 @@
            });
  
            // Animated step-by-step movement with a slower glide (time-based)
-           await glideMove(position, target, 1000);
+           await glideMove(position, target, 1500);
            placeTokenAt(target);
            position = target;
            updateStatus(roll);
@@ -359,7 +357,7 @@
            if (links[position]) {
              const dest = links[position];
              announceEl.textContent = dest > position ? 'Ladder! Climb to ' + dest : 'Snake! Slide to ' + dest;
-            await glideMove(position, dest, 1000);
+            await glideMove(position, dest, 1500);
             placeTokenAt(dest);
             position = dest;
             updateStatus();
@@ -397,5 +395,4 @@
   </script>
 </body>
 </html>
-
 
