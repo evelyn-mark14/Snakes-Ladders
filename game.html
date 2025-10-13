@@ -8,7 +8,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600&family=Poppins:wght@500;600&family=Roboto:wght@400;500&display=swap" rel="stylesheet"/>
   <link rel="stylesheet" href="styles.css" />
   <style>
-    /* Scoped styles for the game board */
+    /* Styles for the game board */
     .game-wrapper { max-width: 1000px; margin: 80px auto; padding: 1rem; }
     .game-header { text-align: center; margin-bottom: 1rem; }
     .board {
@@ -17,7 +17,7 @@
       grid-template-columns: repeat(6, 1fr);
       grid-auto-rows: 1fr;
       gap: 0;
-      /* Use the supplied board artwork as the visual layout */
+      /* Use the board as the visual layout */
       background: url('./Flash snakes and ladders (2).png') center/100% 100% no-repeat;
       aspect-ratio: 1 / 1;
       width: 100%;
@@ -37,7 +37,7 @@
       padding: 8px; box-sizing: border-box;
     }
     .pip { width: 16px; height: 16px; background: #333; border-radius: 50%; justify-self: center; align-self: center; }
-    /* Position pips in 3x3 grid */
+    /* Position in 3x3 grid */
     .pip[data-pos="1"] { grid-row: 1; grid-column: 1; }
     .pip[data-pos="2"] { grid-row: 1; grid-column: 2; }
     .pip[data-pos="3"] { grid-row: 1; grid-column: 3; }
@@ -58,7 +58,7 @@
       display: block;
     }
     .cell .num { position: absolute; top: 6px; left: 8px; font-size: 0.75rem; opacity: 0.35; color: #000; }
-    /* Prevent overlay coloring so the artwork remains visible */
+    /* background visible */
     .cell.snake { background: transparent; }
     .cell.ladder { background: transparent; }
     .cell.link-start { outline: 2px solid #e74c3c; }
@@ -98,6 +98,16 @@
       z-index: 999;
     }
     .announce { text-align: center; min-height: 1.4rem; margin-top: 0.5rem; color: var(--primary-blue, #1b4b8b); font-weight: 600; }
+
+    /* Tile zoom overlay */
+    .tile-zoom-backdrop {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.55);
+      display: none; align-items: center; justify-content: center; z-index: 2000;
+    }
+    .tile-zoom-box {
+      background: #fff; padding: 10px; border-radius: 10px; box-shadow: 0 10px 30px rgba(0,0,0,0.35);
+    }
+    #tileZoomCanvas { width: min(80vmin, 560px); height: min(80vmin, 560px); display: block; }
   </style>
 </head>
 <body>
@@ -134,7 +144,7 @@
         <aside class="dice-panel" aria-label="Dice panel">
           <div class="dice-box">
             <div id="dice" class="dice" aria-live="polite" role="img" aria-label="Dice showing value">
-              <!-- 3x3 grid of pips; visibility controlled by JS -->
+              <!-- 3x3 grid visibility controlled by JS -->
               <div class="pip" data-pos="1" style="visibility:hidden"></div>
               <div class="pip" data-pos="2" style="visibility:hidden"></div>
               <div class="pip" data-pos="3" style="visibility:hidden"></div>
@@ -154,6 +164,12 @@
       <div class="announce" id="announce" aria-live="assertive"></div>
     </div>
   </main>
+  <!-- Tile zoom overlay -->
+  <div id="tileZoom" class="tile-zoom-backdrop" aria-hidden="true">
+    <div class="tile-zoom-box" role="dialog" aria-label="Tile detail">
+      <canvas id="tileZoomCanvas" width="600" height="600"></canvas>
+    </div>
+  </div>
 <!-- Footer Section -->
   <footer role="contentinfo">
     <div class="footer-content">
@@ -180,14 +196,25 @@
       const rollBtn = document.getElementById('rollBtn');
       const restartBtn = document.getElementById('restartBtn');
       const announceEl = document.getElementById('announce');
+      const tileZoomEl = document.getElementById('tileZoom');
+      const tileZoomCanvas = document.getElementById('tileZoomCanvas');
+      const tileZoomCtx = tileZoomCanvas.getContext('2d');
  
       const boardSize = 6; // 6x6
       const lastCell = 36;
       const cells = [];
       const links = { 6: 18, 12: 24, 15: 27, 11: 3, 20: 16, 25: 23, 32: 28 }; // ladders and snakes
       let rollCount = 0;
+      const zoomCells = new Set([1,2,4,6,8,14,15,16,17,20,21,23,25,31,32,33,36]);
+      const specialForward = { 4: 2, 31: 2 }; // move forward extra spaces when landing here
+
+      // Preload the board image for accurate cropping
+      const boardImg = new Image();
+      boardImg.src = './Flash snakes and ladders (2).png';
+      let boardImgLoaded = false;
+      boardImg.onload = () => { boardImgLoaded = true; };
  
-      // Compute number for a visual row/col with fixed bottom-left serpentine
+      // Compute number for a visual row
       function computeNumber(vRow, vCol) {
         const rFromBottom = boardSize - vRow + 1; // 1 at bottom row
         const odd = rFromBottom % 2 === 1;
@@ -195,7 +222,7 @@
         return (rFromBottom - 1) * boardSize + indexInRow;
       }
  
-      // Build serpentine numbering layout 1..36
+      // Build numbering layout 1 ->36
       function buildBoard() {
         boardEl.innerHTML = '';
         const frag = document.createDocumentFragment();
@@ -216,7 +243,7 @@
         boardEl.appendChild(frag);
       }
 
-      // no edit/link UI; links remains empty by default
+      // links remains empty by default
 
       function getVisualCoordsForNumber(num) {
         for (let vRow = 1; vRow <= boardSize; vRow++) {
@@ -242,7 +269,7 @@
       }
 
       // Robust placement that waits for layout if needed
-      // Removed safe wrapper; direct placement works with this layout
+      // Removed safe wrapper - direct placement works with this layout
 
       // Dice rendering helpers
       const faceToPips = {
@@ -353,16 +380,59 @@
            updateStatus(roll);
            placeTokenAt(position);
  
-           // Check snake/ladder
-           if (links[position]) {
-             const dest = links[position];
-             announceEl.textContent = dest > position ? 'Ladder! Climb to ' + dest : 'Snake! Slide to ' + dest;
-            await glideMove(position, dest, 1500);
-            placeTokenAt(dest);
-            position = dest;
+          // Check snake/ladder
+          if (links[position]) {
+            const dest = links[position];
+            const isLadder = dest > position;
+            announceEl.textContent = isLadder ? 'Ladder! Climb to ' + dest : 'Snake! Slide to ' + dest;
+            if (isLadder) {
+              // Jump directly to the ladder destination without animating squares
+              position = dest;
+              placeTokenAt(position);
+              updateStatus();
+            } else {
+              // Keep snake movement animated step-by-step
+              await glideMove(position, dest, 1500);
+              placeTokenAt(dest);
+              position = dest;
+              updateStatus();
+              placeTokenAt(position);
+            }
+          }
+
+          // Apply special forward movement for specific tiles (e.g., 4, 31)
+          if (specialForward[position]) {
+            const extra = specialForward[position];
+            const next = Math.min(position + extra, lastCell);
+            announceEl.textContent = 'Bonus! Move forward ' + extra + ' spaces to ' + next;
+            await glideMove(position, next, 400);
+            placeTokenAt(next);
+            position = next;
             updateStatus();
-            placeTokenAt(position);
-           }
+
+            // After the bonus move, check for snake/ladder on the new tile
+            if (links[position]) {
+              const dest2 = links[position];
+              const isLadder2 = dest2 > position;
+              announceEl.textContent = isLadder2 ? 'Ladder! Climb to ' + dest2 : 'Snake! Slide to ' + dest2;
+              if (isLadder2) {
+                position = dest2;
+                placeTokenAt(position);
+                updateStatus();
+              } else {
+                await glideMove(position, dest2, 1500);
+                placeTokenAt(dest2);
+                position = dest2;
+                updateStatus();
+                placeTokenAt(position);
+              }
+            }
+          }
+
+          // After final position, show zoom for selected tiles
+          if (zoomCells.has(position)) {
+            await showTileZoom(position);
+          }
  
            if (position === lastCell) {
              announceEl.textContent = 'You reached FINISH in ' + rollCount + ' rolls! You win!';
@@ -389,10 +459,41 @@
         rollCount = 0;
         updateStatus();
       });
-      // Initialize dice face on load
+      // Initialise dice face on load
       renderDice(1);
+
+      async function showTileZoom(cellNumber) {
+        // Ensure image is ready
+        if (!boardImgLoaded) {
+          await new Promise(resolve => {
+            if (boardImgLoaded) return resolve();
+            boardImg.onload = () => { boardImgLoaded = true; resolve(); };
+          });
+        }
+        const coords = getVisualCoordsForNumber(cellNumber);
+        if (!coords) return;
+        // Compute source rect on the original board image
+        const tileWidth = boardImg.width / boardSize;
+        const tileHeight = boardImg.height / boardSize;
+        const sx = (coords.vCol - 1) * tileWidth;
+        const sy = (coords.vRow - 1) * tileHeight;
+        // Clear and draw zoomed tile
+        tileZoomCtx.clearRect(0, 0, tileZoomCanvas.width, tileZoomCanvas.height);
+        tileZoomCtx.imageSmoothingEnabled = true;
+        tileZoomCtx.imageSmoothingQuality = 'high';
+        tileZoomCtx.drawImage(
+          boardImg,
+          sx, sy, tileWidth, tileHeight,
+          0, 0, tileZoomCanvas.width, tileZoomCanvas.height
+        );
+        // Show overlay for 3 seconds
+        tileZoomEl.style.display = 'flex';
+        tileZoomEl.setAttribute('aria-hidden', 'false');
+        await new Promise(r => setTimeout(r, 3000));
+        tileZoomEl.style.display = 'none';
+        tileZoomEl.setAttribute('aria-hidden', 'true');
+      }
     })();
   </script>
 </body>
 </html>
-
