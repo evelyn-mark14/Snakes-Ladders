@@ -205,7 +205,7 @@
       const cells = [];
       const links = { 6: 18, 12: 24, 15: 27, 11: 3, 20: 16, 25: 23, 32: 28 }; // ladders and snakes
       let rollCount = 0;
-      const zoomCells = new Set([1,2,4,6,8,14,15,16,17,20,21,23,25,31,32,33,36]);
+      const zoomCells = new Set([2,4,6,8,11,14,15,16,17,20,21,23,25,26,31,32,36]);
       const specialForward = { 4: 2, 31: 2 }; // move forward extra spaces when landing here
 
       // Preload the board image for accurate cropping
@@ -380,6 +380,11 @@
            updateStatus(roll);
            placeTokenAt(position);
  
+          // Show zoom on landing tile before any ladders/snakes/bonuses
+          if (zoomCells.has(position)) {
+            await showTileZoom(position);
+          }
+
           // Check snake/ladder
           if (links[position]) {
             const dest = links[position];
@@ -410,6 +415,11 @@
             position = next;
             updateStatus();
 
+            // Zoom on the new tile after bonus before any additional links
+            if (zoomCells.has(position)) {
+              await showTileZoom(position);
+            }
+
             // After the bonus move, check for snake/ladder on the new tile
             if (links[position]) {
               const dest2 = links[position];
@@ -429,10 +439,7 @@
             }
           }
 
-          // After final position, show zoom for selected tiles
-          if (zoomCells.has(position)) {
-            await showTileZoom(position);
-          }
+          // Zoom already handled immediately upon landing
  
            if (position === lastCell) {
              announceEl.textContent = 'You reached FINISH in ' + rollCount + ' rolls! You win!';
@@ -497,3 +504,4 @@
   </script>
 </body>
 </html>
+
