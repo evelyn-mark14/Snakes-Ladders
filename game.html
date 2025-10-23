@@ -389,6 +389,11 @@
           // Show zoom on landing tile (only if not a snake/ladder tile and not special forward)
           if (zoomCells.has(position) && !links[position] && !specialForward[position]) {
             await showTileZoom(position);
+            
+            // Show warning message for tile 2
+            if (position === 2) {
+              await showWarningMessage();
+            }
           }
 
           // Check snake/ladder
@@ -525,7 +530,9 @@
           sx -= tileWidth * 0.05; // Move these tiles slightly to the left
         } else if (cellNumber === 2 || cellNumber === 3 || cellNumber === 11) {
           sx -= tileWidth * 0.05; // Move these tiles slightly to the left
-        } else if (cellNumber === 6 || cellNumber === 18 || cellNumber === 20 || cellNumber === 21 || cellNumber === 32 || cellNumber === 36) {
+        } else if (cellNumber === 20 || cellNumber === 32) {
+          sx -= tileWidth * 0.05; // Move tiles 20 and 32 5% to the left
+        } else if (cellNumber === 6 || cellNumber === 18 || cellNumber === 21 || cellNumber === 36) {
           sx -= tileWidth * 0.05; // Move these tiles slightly to the left
         } else if (cellNumber === 16) {
           sx -= tileWidth * 0.05; // Move tile 16 slightly to the left
@@ -549,6 +556,54 @@
         await new Promise(r => setTimeout(r, 3000));
         tileZoomEl.style.display = 'none';
         tileZoomEl.setAttribute('aria-hidden', 'true');
+      }
+
+      async function showWarningMessage() {
+        // Create warning overlay
+        const warningEl = document.createElement('div');
+        warningEl.style.cssText = `
+          position: fixed;
+          top: 0;
+          left: 0;
+          width: 100%;
+          height: 100%;
+          background: rgba(0, 0, 0, 0.8);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          z-index: 3000;
+          font-family: Arial, sans-serif;
+        `;
+        
+        const warningText = document.createElement('div');
+        warningText.textContent = 'WARNING: Please wait';
+        warningText.style.cssText = `
+          color: #8B0000;
+          font-size: 3rem;
+          font-weight: bold;
+          text-align: center;
+          animation: flash 0.5s infinite alternate;
+        `;
+        
+        // Add flash animation
+        const style = document.createElement('style');
+        style.textContent = `
+          @keyframes flash {
+            from { opacity: 1; }
+            to { opacity: 0.3; }
+          }
+        `;
+        document.head.appendChild(style);
+        
+        warningEl.appendChild(warningText);
+        document.body.appendChild(warningEl);
+        
+        // Show warning for 6 seconds
+        await new Promise(r => setTimeout(r, 6000));
+        
+        // Remove warning
+        document.body.removeChild(warningEl);
+        document.head.removeChild(style);
       }
 
     })();
