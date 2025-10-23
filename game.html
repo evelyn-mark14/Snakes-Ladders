@@ -521,17 +521,14 @@
         const sy = (coords.vRow - 1) * tileHeight;
         
         // Adjust positioning for all tiles to show complete tile without cut-off
-        if (cellNumber === 4 || cellNumber === 23) {
-          // Keep tiles 4 and 23 as they are (perfect positioning)
-          sx = sx; // No adjustment
+        if (cellNumber === 4 || cellNumber === 8 || cellNumber === 15 || cellNumber === 17 || cellNumber === 23 || cellNumber === 27 || cellNumber === 30 || cellNumber === 31) {
+          sx -= tileWidth * 0.05; // Move these tiles slightly to the left
         } else if (cellNumber === 2 || cellNumber === 3 || cellNumber === 11) {
           sx -= tileWidth * 0.05; // Move these tiles slightly to the left
         } else if (cellNumber === 6 || cellNumber === 18 || cellNumber === 20 || cellNumber === 21 || cellNumber === 32 || cellNumber === 36) {
           sx -= tileWidth * 0.05; // Move these tiles slightly to the left
         } else if (cellNumber === 16) {
           sx -= tileWidth * 0.05; // Move tile 16 slightly to the left
-        } else if (cellNumber === 15 || cellNumber === 27) {
-          sx += tileWidth * 0.02; // Move these tiles very slightly to the right
         } else {
           sx -= tileWidth * 0.02; // Move all other tiles very slightly to the left
         }
