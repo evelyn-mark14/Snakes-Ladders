@@ -57,7 +57,7 @@
       border-radius: 0;
       display: block;
     }
-    .cell .num { position: absolute; top: 6px; left: 8px; font-size: 0.75rem; opacity: 0.35; color: #000; }
+    .cell .num { position: absolute; bottom: 4px; right: 16px; font-size: 0.8rem; opacity: 0.7; color: #000; font-weight: 600; }
     /* background visible */
     .cell.snake { background: transparent; }
     .cell.ladder { background: transparent; }
@@ -205,7 +205,7 @@
       const cells = [];
       const links = { 6: 18, 12: 24, 15: 27, 11: 3, 20: 16, 25: 23, 32: 28 }; // ladders and snakes
       let rollCount = 0;
-      const zoomCells = new Set([2,4,6,8,11,14,15,16,17,20,21,23,25,26,31,32,36]);
+      const zoomCells = new Set([2,3,4,6,8,11,18,17,16,15,13,20,21,23,25,26,27,30,31,32,36]);
       const specialForward = { 4: 2, 31: 2 }; // move forward extra spaces when landing here
 
       // Preload the board image for accurate cropping
@@ -337,6 +337,12 @@
         }
       }
 
+      async function directMove(from, to, delayMs) {
+        // Direct movement for ladders - no intermediate steps
+        placeTokenAt(to);
+        await new Promise(r => setTimeout(r, delayMs));
+      }
+
       async function handleRoll() {
          if (handleRoll.rolling) return;
          handleRoll.rolling = true;
@@ -380,8 +386,8 @@
            updateStatus(roll);
            placeTokenAt(position);
  
-          // Show zoom on landing tile before any ladders/snakes/bonuses
-          if (zoomCells.has(position)) {
+          // Show zoom on landing tile (only if not a snake/ladder tile and not special forward)
+          if (zoomCells.has(position) && !links[position] && !specialForward[position]) {
             await showTileZoom(position);
           }
 
@@ -390,11 +396,18 @@
             const dest = links[position];
             const isLadder = dest > position;
             announceEl.textContent = isLadder ? 'Ladder! Climb to ' + dest : 'Snake! Slide to ' + dest;
+            
+            // Show zoom of the starting tile first (except tiles 12 and 24)
+            if (position !== 12 && position !== 24) {
+              await showTileZoom(position);
+            }
+            
             if (isLadder) {
-              // Jump directly to the ladder destination without animating squares
+              // Direct movement for ladders - move straight from start to destination
+              await directMove(position, dest, 1500);
               position = dest;
-              placeTokenAt(position);
               updateStatus();
+              placeTokenAt(position);
             } else {
               // Keep snake movement animated step-by-step
               await glideMove(position, dest, 1500);
@@ -403,6 +416,11 @@
               updateStatus();
               placeTokenAt(position);
             }
+            
+            // Show zoom of the destination tile after moving (except tiles 12, 24, and 28)
+            if (position !== 12 && position !== 24 && position !== 28) {
+              await showTileZoom(position);
+            }
           }
 
           // Apply special forward movement for specific tiles (e.g., 4, 31)
@@ -410,31 +428,43 @@
             const extra = specialForward[position];
             const next = Math.min(position + extra, lastCell);
             announceEl.textContent = 'Bonus! Move forward ' + extra + ' spaces to ' + next;
-            await glideMove(position, next, 400);
+            
+            // Show zoom of starting tile first
+            await showTileZoom(position);
+            
+            await glideMove(position, next, 1500);
             placeTokenAt(next);
             position = next;
             updateStatus();
-
-            // Zoom on the new tile after bonus before any additional links
-            if (zoomCells.has(position)) {
-              await showTileZoom(position);
-            }
 
             // After the bonus move, check for snake/ladder on the new tile
             if (links[position]) {
               const dest2 = links[position];
               const isLadder2 = dest2 > position;
               announceEl.textContent = isLadder2 ? 'Ladder! Climb to ' + dest2 : 'Snake! Slide to ' + dest2;
+              
+              // Show zoom of the starting tile first (except tiles 12 and 24)
+              if (position !== 12 && position !== 24) {
+                await showTileZoom(position);
+              }
+              
               if (isLadder2) {
+                // Direct movement for ladders - move straight from start to destination
+                await directMove(position, dest2, 1500);
                 position = dest2;
-                placeTokenAt(position);
                 updateStatus();
+                placeTokenAt(position);
               } else {
                 await glideMove(position, dest2, 1500);
                 placeTokenAt(dest2);
                 position = dest2;
                 updateStatus();
                 placeTokenAt(position);
+              }
+              
+              // Show zoom of the destination tile after moving (except tiles 12, 24, and 28)
+              if (position !== 12 && position !== 24 && position !== 28) {
+                await showTileZoom(position);
               }
             }
           }
@@ -479,11 +509,24 @@
         }
         const coords = getVisualCoordsForNumber(cellNumber);
         if (!coords) return;
+        
+        // Hide any existing zoom first
+        tileZoomEl.style.display = 'none';
+        tileZoomEl.setAttribute('aria-hidden', 'true');
+        
         // Compute source rect on the original board image
         const tileWidth = boardImg.width / boardSize;
         const tileHeight = boardImg.height / boardSize;
-        const sx = (coords.vCol - 1) * tileWidth;
+        let sx = (coords.vCol - 1) * tileWidth;
         const sy = (coords.vRow - 1) * tileHeight;
+        
+        // Adjust positioning for specific tiles
+        if (cellNumber === 15 || cellNumber === 16 || cellNumber === 21 || cellNumber === 23 || cellNumber === 27 || cellNumber === 36) {
+          sx += tileWidth * 0.05; // Move these tiles slightly to the right (reduced)
+        } else {
+          sx -= tileWidth * 0.1; // Move all other tiles slightly to the left
+        }
+        
         // Clear and draw zoomed tile
         tileZoomCtx.clearRect(0, 0, tileZoomCanvas.width, tileZoomCanvas.height);
         tileZoomCtx.imageSmoothingEnabled = true;
@@ -493,13 +536,15 @@
           sx, sy, tileWidth, tileHeight,
           0, 0, tileZoomCanvas.width, tileZoomCanvas.height
         );
-        // Show overlay for 3 seconds
+        
+        // Show overlay for exactly 3 seconds
         tileZoomEl.style.display = 'flex';
         tileZoomEl.setAttribute('aria-hidden', 'false');
         await new Promise(r => setTimeout(r, 3000));
         tileZoomEl.style.display = 'none';
         tileZoomEl.setAttribute('aria-hidden', 'true');
       }
+
     })();
   </script>
 </body>
