@@ -478,6 +478,10 @@
  
            if (position === lastCell) {
              announceEl.textContent = 'You reached FINISH in ' + rollCount + ' rolls! You win!';
+             
+             // Show party popper celebration
+             await showPartyPopperCelebration();
+             
              return; // keep disabled
            }
          } catch (err) {
@@ -603,6 +607,102 @@
         
         // Remove warning
         document.body.removeChild(warningEl);
+        document.head.removeChild(style);
+      }
+
+      async function showPartyPopperCelebration() {
+        // Create celebration overlay
+        const celebrationEl = document.createElement('div');
+        celebrationEl.style.cssText = `
+          position: fixed;
+          top: 0;
+          left: 0;
+          width: 100%;
+          height: 100%;
+          pointer-events: none;
+          z-index: 4000;
+          overflow: hidden;
+        `;
+        document.body.appendChild(celebrationEl);
+
+        // Create "CONGRATULATIONS!" text effect
+        const congratsText = document.createElement('div');
+        congratsText.textContent = 'CONGRATULATIONS!';
+        congratsText.style.cssText = `
+          position: absolute;
+          top: 50%;
+          left: 50%;
+          transform: translate(-50%, -50%);
+          font-size: 4rem;
+          font-weight: bold;
+          color: #ff6b6b;
+          text-shadow: 3px 3px 0px #ff9ff3, 6px 6px 0px #4ecdc4;
+          animation: congratsEffect 6.5s ease-out forwards;
+          z-index: 4001;
+          text-align: center;
+        `;
+        celebrationEl.appendChild(congratsText);
+
+        // Create multiple confetti pieces
+        const colors = ['#ff6b6b', '#4ecdc4', '#45b7d1', '#96ceb4', '#feca57', '#ff9ff3', '#54a0ff', '#5f27cd'];
+        const confettiPieces = [];
+
+        for (let i = 0; i < 150; i++) {
+          const confetti = document.createElement('div');
+          confetti.style.cssText = `
+            position: absolute;
+            width: ${8 + Math.random() * 8}px;
+            height: ${8 + Math.random() * 8}px;
+            background: ${colors[Math.floor(Math.random() * colors.length)]};
+            left: ${Math.random() * 100}%;
+            animation: confettiFall ${3 + Math.random() * 4}s linear forwards;
+            border-radius: ${Math.random() > 0.5 ? '50%' : '0%'};
+          `;
+          celebrationEl.appendChild(confetti);
+          confettiPieces.push(confetti);
+        }
+
+        // Add confetti animation
+        const style = document.createElement('style');
+        style.textContent = `
+          @keyframes confettiFall {
+            0% {
+              transform: translateY(-100vh) rotate(0deg) scale(0);
+              opacity: 1;
+            }
+            10% {
+              transform: translateY(-80vh) rotate(72deg) scale(1);
+            }
+            100% {
+              transform: translateY(100vh) rotate(720deg) scale(0.5);
+              opacity: 0;
+            }
+          }
+          @keyframes congratsEffect {
+            0% {
+              transform: translate(-50%, -50%) scale(0) rotate(0deg);
+              opacity: 1;
+            }
+            20% {
+              transform: translate(-50%, -50%) scale(1.1) rotate(10deg);
+            }
+            80% {
+              transform: translate(-50%, -50%) scale(1) rotate(0deg);
+              opacity: 1;
+            }
+            100% {
+              transform: translate(-50%, -50%) scale(1) rotate(0deg);
+              opacity: 0;
+            }
+          }
+        `;
+        document.head.appendChild(style);
+
+        // Show celebration for 9.5 seconds (6.5s congratulations + 3s confetti only)
+        await new Promise(r => setTimeout(r, 9500));
+
+        // Remove celebration
+        document.body.removeChild(celebrationEl);
         document.head.removeChild(style);
       }
 
